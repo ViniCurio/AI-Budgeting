@@ -2,8 +2,9 @@ package bootcamp.badgeting.application;
 
 import bootcamp.badgeting.application.input.PersistTransactionInput;
 import bootcamp.badgeting.application.output.TransactionOutput;
-import bootcamp.badgeting.domain.Transaction;
-import bootcamp.badgeting.domain.TransactionRepository;
+import bootcamp.badgeting.domain.transaction.Transaction;
+import bootcamp.badgeting.domain.transaction.TransactionRepository;
+import bootcamp.badgeting.domain.user.UserId;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,9 @@ public class PersistTransactionUseCase {
         this.transactionRepository = transactionRepository;
     }
 
-    @Tool(name = "persist-transaction", description = "Persiste uma nova transação financeira")
-    public TransactionOutput execute(@ToolParam(description = "Dados a serem persistidos") PersistTransactionInput input) {
+    public TransactionOutput execute(UserId owner, PersistTransactionInput input) {
         var transaction = transactionRepository.save(
-                new Transaction(input.description(), input.amount(), input.category()));
+                new Transaction(owner, input.description(), input.amount(), input.category()));
 
         return TransactionOutput.from(transaction);
 
