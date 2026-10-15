@@ -1,8 +1,9 @@
 package bootcamp.badgeting.application;
 
 import bootcamp.badgeting.application.output.TransactionOutput;
-import bootcamp.badgeting.domain.Category;
-import bootcamp.badgeting.domain.TransactionRepository;
+import bootcamp.badgeting.domain.transaction.Category;
+import bootcamp.badgeting.domain.transaction.TransactionRepository;
+import bootcamp.badgeting.domain.user.UserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -15,9 +16,8 @@ import java.util.List;
 public class TransactionsByCategoryUseCase {
     private final TransactionRepository repository;
 
-    @Tool(name = "list-transactions-by-category", description = "Lista transações financeiras por categoria")
-    public List<TransactionOutput> execute(@ToolParam(description = "Categoria de uma transação") Category category) {
-        return repository.findAllByCategory(category)
+    public List<TransactionOutput> execute(UserId ownerId, Category category) {
+        return repository.findAllByCategory(ownerId ,category)
                 .stream()
                 .map(TransactionOutput::from)
                 .toList();

@@ -1,12 +1,14 @@
-package bootcamp.badgeting.infrastructore.http;
+package bootcamp.badgeting.infrastructure.http;
 
 import bootcamp.badgeting.application.DeleteTransactionUseCase;
 import bootcamp.badgeting.application.PersistTransactionUseCase;
 import bootcamp.badgeting.application.TransactionsByCategoryUseCase;
-import bootcamp.badgeting.domain.Category;
-import bootcamp.badgeting.domain.TransactionId;
-import bootcamp.badgeting.infrastructore.http.request.TransactionRequest;
-import bootcamp.badgeting.infrastructore.http.response.TransactionResponse;
+import bootcamp.badgeting.domain.transaction.Category;
+import bootcamp.badgeting.domain.transaction.TransactionId;
+import bootcamp.badgeting.domain.user.UserId;
+import bootcamp.badgeting.infrastructure.http.request.TransactionRequest;
+import bootcamp.badgeting.infrastructure.http.response.TransactionResponse;
+import jakarta.validation.Valid;
 import org.springframework.ai.audio.transcription.TranscriptionModel;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,6 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,25 +50,35 @@ public class TransactionController {
         this.textToSpeechModel = textToSpeechModel;
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt.getContentAsString(Charset.defaultCharset()))
-                .defaultTools(persistTransactionUseCase, transactionsByCategoryUseCase)
                 .build();
     }
 
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TransactionResponse createTransaction(@RequestBody TransactionRequest request) {
-        var transaction = persistTransactionUseCase.execute(request.toInput());
+    public TransactionResponse createTransaction(@Valid @RequestBody TransactionRequest request, @AuthenticationPrincipal Jwt jwt) {
+        var transaction = persistTransactionUseCase.execute(
+                authenticatedUserId(jwt),
+                request.toInput()
+        );
+
         return TransactionResponse.from(transaction);
+
     }
 
     @GetMapping("/{category}")
     @ResponseStatus(HttpStatus.OK)
-    public List<TransactionResponse> readTransactions(@PathVariable Category category) {
-        return transactionsByCategoryUseCase.execute(category)
+    public List<TransactionResponse> readTransactions(@PathVariable Category category, @AuthenticationPrincipal Jwt jwt) {
+        return transactionsByCategoryUseCase.execute(authenticatedUserId(jwt), category)
                 .stream()
                 .map(TransactionResponse::from)
                 .toList();
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTransaction(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        deleteTransactionUseCase.execute(authenticatedUserId(jwt), new TransactionId(id));
     }
 
     @PostMapping(value = "/ai", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "audio/mp3")
@@ -88,10 +102,8 @@ public class TransactionController {
                 .body(resource);
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTransaction(@PathVariable UUID id) {
-        deleteTransactionUseCase.execute(new TransactionId(id));
+    private UserId authenticatedUserId(Jwt jwt) {
+        return new UserId(UUID.fromString(jwt.getSubject()));
     }
 
 }
